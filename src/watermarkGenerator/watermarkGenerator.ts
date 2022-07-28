@@ -102,8 +102,6 @@ const initApp = async () => {
     choices: ['Text', new inquirer.Separator(), 'Image'],
   });
 
-  console.log(action);
-
   if (action === 'Text') {
     const { watermarkText } = await prompt({
       name: 'watermarkText',
