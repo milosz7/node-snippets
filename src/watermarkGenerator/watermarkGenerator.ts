@@ -7,12 +7,12 @@ const dirs = ['./build/watermarkGenerator/inputs', './build/watermarkGenerator/o
 const initDirs = () => {
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) {
-      fs.mkdir(dir, { recursive: false}, (err) => {
-        if (err) throw err
+      fs.mkdir(dir, { recursive: false }, (err) => {
+        if (err) throw err;
       });
     }
   }
-}
+};
 
 initDirs();
 
@@ -20,28 +20,35 @@ const createInputPath = (imageName: string) => `./build/watermarkGenerator/input
 
 const createOutputPath = (imageName: string) => {
   const [fileName, format] = imageName.split('.');
-  return `./build/watermarkGenerator/outputs/${fileName}-with-watermark.${format}`;
+  const pathSuffix = '(1)'
+  const outputPath = `./build/watermarkGenerator/outputs/`;
+  const filename = `${fileName}-with-watermark.${format}`
+  if (fs.existsSync(outputPath + filename)) {
+    const newFileName = `${fileName}-with-watermark${pathSuffix}.${format}`
+    return outputPath + newFileName;
+  }
+  return outputPath + filename;
 };
 
 const watermarkError = () => {
   console.log(`Invalid image path. Reloading app...`);
-  setTimeout(() => {
-    initApp();
-  }, 1000);
-}
+  initApp();
+};
 
 const addTextWatermark = async (imagePath: string, text: string, outputPath: string) => {
-  const image = await Jimp.read(imagePath, () => {
+  try {
+    const image = await Jimp.read(imagePath);
+    const font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
+    const textData = {
+      text: text,
+      alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+      alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    };
+    image.print(font, 0, 0, textData, image.getWidth(), image.getHeight());
+    image.quality(100).writeAsync(outputPath);
+  } catch {
     watermarkError();
-  });
-  const font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
-  const textData = {
-    text: text,
-    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
-    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-  };
-  image.print(font, 0, 0, textData, image.getWidth(), image.getHeight());
-  image.quality(100).writeAsync(outputPath);
+  }
 };
 
 const addImageWatermark = async (
@@ -49,29 +56,38 @@ const addImageWatermark = async (
   watermarkImagePath: string,
   outputPath: string
 ) => {
-  const image = await Jimp.read(imagePath, () => {
+  try {
+    const image = await Jimp.read(imagePath);
+    const watermark = await Jimp.read(watermarkImagePath);
+    const watermarkSettings = {
+      mode: Jimp.BLEND_SOURCE_OVER,
+      opacitySource: 0.5,
+      opacityDest: 1,
+    };
+    image.composite(
+      watermark,
+      (image.bitmap.width - watermark.bitmap.width) / 2,
+      (image.bitmap.height - watermark.bitmap.height) / 2,
+      watermarkSettings
+    );
+    image.quality(100).writeAsync(outputPath);
+  } catch {
     watermarkError();
-  });
-  const watermark = await Jimp.read(watermarkImagePath, () => {
-    watermarkError();
-  });
-  const watermarkSettings = {
-    mode: Jimp.BLEND_SOURCE_OVER,
-    opacitySource: 0.5,
-    opacityDest: 1,
-  };
-  image.composite(
-    watermark,
-    (image.bitmap.width - watermark.bitmap.width) / 2,
-    (image.bitmap.height - watermark.bitmap.height) / 2,
-    watermarkSettings
-  );
-  image.quality(100).writeAsync(outputPath);
+  }
 };
 
 const prompt = inquirer.createPromptModule();
 
 const initApp = async () => {
+  const { start } = await prompt({
+    name: 'start',
+    message:
+      'Please put your image files in the created inputs folder and confirm to proceed. Select "no" if you wish to quit.',
+    type: 'confirm',
+  });
+
+  if (!start) process.exit();
+
   const { inputImage } = await prompt({
     name: 'inputImage',
     type: 'input',
@@ -86,6 +102,8 @@ const initApp = async () => {
     choices: ['Text', new inquirer.Separator(), 'Image'],
   });
 
+  console.log(action);
+
   if (action === 'Text') {
     const { watermarkText } = await prompt({
       name: 'watermarkText',
@@ -94,11 +112,13 @@ const initApp = async () => {
     });
     addTextWatermark(createInputPath(inputImage), watermarkText, createOutputPath(inputImage));
   }
+
   if (action === 'Image') {
     const { watermarkImage } = await prompt({
       name: 'watermarkImage',
       type: 'input',
-      message: 'Provide a full name of an image in inputs folder that you wish to be the watermark:',
+      message:
+        'Provide a full name of an image in inputs folder that you wish to be the watermark:',
     });
     addImageWatermark(
       createInputPath(inputImage),
