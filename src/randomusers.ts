@@ -11,8 +11,12 @@ interface PersonData {
 
 const userInput = parseInt(process.argv[2]);
 if (!userInput) {
-  console.log("Passed argument is invalid - generating data for 20 people (default)");
+  console.log('Passed argument is invalid - generating data for 20 people (default)');
 }
+
+const defaultGenerationQuantity = 20;
+const minRandomAge = 18;
+const possibleAgesNumber = 61;
 
 const output: PersonData[] = [];
 
@@ -27,19 +31,21 @@ const generateGender = (): 'M' | 'F' => {
 };
 
 const generatePhoneNumber = () => {
-  let number = '+48';
+  const numberPrefix = '+48';
+  let numberCore = '';
   const possibleFirstDigits = [5, 6, 7, 8];
   const randomFirstDigit =
     possibleFirstDigits[Math.floor(Math.random() * possibleFirstDigits.length)];
-  number += randomFirstDigit.toString();
+  numberCore += randomFirstDigit.toString();
   for (let i = 0; i < 8; i++) {
     const randomDigit = Math.floor(Math.random() * 10);
-    number += randomDigit.toString();
+    numberCore += randomDigit.toString();
   }
-  return number;
+  return numberPrefix + numberCore;
 };
 
-const amountToGenerate = (typeof userInput === 'number' && userInput ? userInput : 20);
+const amountToGenerate =
+  typeof userInput === 'number' && userInput ? userInput : defaultGenerationQuantity;
 
 for (let i = 0; i < amountToGenerate; i++) {
   const gender = generateGender();
@@ -50,7 +56,7 @@ for (let i = 0; i < amountToGenerate; i++) {
   const randomFirstName =
     gender === 'M' ? maleFirstNames[randomFirstNameIdx] : femaleFirstNames[randomFirstNameIdx];
   const randomSecondName = lastNames[Math.floor(Math.random() * lastNames.length)];
-  const age = Math.floor(Math.random() * 61 + 18);
+  const age = Math.floor(Math.random() * possibleAgesNumber + minRandomAge);
   const identity = {
     gender: gender,
     firstName: randomFirstName,
